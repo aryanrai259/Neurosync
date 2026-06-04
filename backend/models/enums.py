@@ -89,3 +89,24 @@ class IngestionStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class SyncStatus(str, Enum):
+    """
+    Status of an entity's synchronization with the Neo4j graph.
+    Supports eventual consistency.
+    """
+
+    PENDING = "pending"
+    SYNCED = "synced"
+    FAILED = "failed"
+
+
+class EmbeddingStatus(str, Enum):
+    """
+    Status of an event's text embedding in the vector store.
+    """
+
+    PENDING = "pending"
+    EMBEDDED = "embedded"
+    FAILED = "failed"
