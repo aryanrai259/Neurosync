@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-from .enums import SourceType
+from .enums import EmbeddingStatus, SourceType
 
 
 class NormalizedEvent(BaseModel):
@@ -32,8 +32,9 @@ class NormalizedEvent(BaseModel):
       prevents double-ingestion if the same event arrives twice.
     - content: the normalised text that gets embedded into the vector store.
       Kept separate from metadata so embedding is always deterministic.
-    - embedding_id: None until the async embedding pipeline runs. Lets us
-      query for "all events not yet embedded" without a separate status table.
+    - embedding_status: Tracks whether the event has been chunked and vectorized.
+      One event may generate multiple chunks, so we just track status here rather
+      than storing a single embedding_id.
     - timestamp vs created_at: timestamp = when it happened in the source
       system. created_at = when Company Brain ingested it. Both matter for
       temporal queries.
@@ -89,11 +90,12 @@ class NormalizedEvent(BaseModel):
             "Examples: thread_id (Slack), pr_number (GitHub), labels (Jira)."
         ),
     )
-    embedding_id: str | None = Field(
-        default=None,
+    embedding_status: EmbeddingStatus = Field(
+        default=EmbeddingStatus.PENDING,
         description=(
-            "ID of this event's embedding in the vector store. "
-            "None means not yet embedded — the async pipeline uses this to find pending events."
+            "Status of vectorization. "
+            "PENDING means the async pipeline needs to process this event. "
+            "One event may generate multiple vector chunks."
         ),
     )
     created_at: datetime = Field(

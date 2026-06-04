@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 from pydantic import ValidationError
 
-from backend.models.enums import SourceType
+from backend.models.enums import EmbeddingStatus, SourceType
 from backend.models.event import NormalizedEvent
 
 
@@ -119,8 +119,8 @@ class TestDefaults:
     def test_metadata_is_empty_dict_by_default(self):
         assert _make().metadata == {}
 
-    def test_embedding_id_is_none_by_default(self):
-        assert _make().embedding_id is None
+    def test_embedding_status_is_pending_by_default(self):
+        assert _make().embedding_status == EmbeddingStatus.PENDING
 
     def test_created_at_is_utc(self):
         event = _make()
@@ -140,10 +140,10 @@ class TestImmutability:
         with pytest.raises(ValidationError):
             event.content = "modified"  # type: ignore
 
-    def test_embedding_id_cannot_be_mutated(self):
+    def test_embedding_status_cannot_be_mutated(self):
         event = _make()
         with pytest.raises(ValidationError):
-            event.embedding_id = "vec-123"  # type: ignore
+            event.embedding_status = EmbeddingStatus.EMBEDDED  # type: ignore
 
 
 # ─── content validator ────────────────────────────────────────────────────────
@@ -219,9 +219,9 @@ class TestOptionalFields:
         event = _make(url="https://github.com/acme/api/pull/234")
         assert event.url == "https://github.com/acme/api/pull/234"
 
-    def test_embedding_id_can_be_set(self):
-        event = _make(embedding_id="chroma-vec-abc123")
-        assert event.embedding_id == "chroma-vec-abc123"
+    def test_embedding_status_can_be_set(self):
+        event = _make(embedding_status=EmbeddingStatus.EMBEDDED)
+        assert event.embedding_status == EmbeddingStatus.EMBEDDED
 
     def test_metadata_can_hold_arbitrary_data(self):
         meta = {"thread_id": "T12345", "reaction_count": 3, "is_reply": True}
