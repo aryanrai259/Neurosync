@@ -9,15 +9,16 @@ No module should define its own data shapes — all schemas live in this directo
 - Define request/response schemas for the API layer
 - Provide TypedDicts and enums for type safety across the codebase
 
-## Files (to be added)
+## Files (Implemented in Phase 1)
 | File | Contains |
 |---|---|
+| `enums.py` | `SourceType`, `EntityType`, `IngestionStatus`, `SyncStatus`, `EmbeddingStatus` |
 | `event.py` | `NormalizedEvent` — canonical event from any source |
-| `entity.py` | `Entity`, `EntityType` — people, services, decisions |
+| `entity.py` | `Entity` — people, services, decisions |
 | `query.py` | `QueryRequest`, `QueryResponse`, `RetrievedChunk` |
-| `workspace.py` | `Workspace`, `WorkspaceConfig` |
+| `workspace.py` | `Workspace` |
 | `memory.py` | `SessionContext`, `WorkspaceSnapshot` |
-| `ingestion.py` | `IngestionRequest`, `IngestionResult` |
+| `ingestion.py` | `IngestionRequest`, `IngestionResult`, `IngestionJob` |
 
 ## Dependency Arrow
 ```

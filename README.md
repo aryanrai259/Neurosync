@@ -105,13 +105,14 @@ neuro/
 | Phase | Name | Status |
 |---|---|---|
 | 0 | Repo initialization + architecture | ✅ Done |
-| 1 | Core models + database schema | ⬜ Not started |
-| 2 | Ingestion pipeline | ⬜ Not started |
-| 3 | Vector + graph retrieval | ⬜ Not started |
-| 4 | Reasoning layer | ⬜ Not started |
-| 5 | API layer | ⬜ Not started |
-| 6 | Frontend | ⬜ Not started |
-| 7 | Evaluation + observability | ⬜ Not started |
+| 1 | Core domain models | ✅ Done |
+| 2 | Database layer & migrations | ✅ Done |
+| 3 | Ingestion pipeline | ⬜ Not started |
+| 4 | Vector + graph retrieval | ⬜ Not started |
+| 5 | Reasoning layer | ⬜ Not started |
+| 6 | API layer | ⬜ Not started |
+| 7 | Frontend | ⬜ Not started |
+| 8 | Evaluation + observability | ⬜ Not started |
 
 ---
 
