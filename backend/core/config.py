@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     )
 
     # ─── Phase 2 (Database) — uncomment when Phase 2 begins ──────────────────
-    # database_url: str = Field(default="", description="PostgreSQL async connection string.")
+    database_url: str = Field(default="postgresql+asyncpg://neuro_user:neuro_password@127.0.0.1:5433/neuro_db", description="PostgreSQL async connection string.")
     # redis_url: str = Field(default="redis://localhost:6379/0")
     # neo4j_uri: str = Field(default="bolt://localhost:7687")
     # neo4j_user: str = Field(default="neo4j")

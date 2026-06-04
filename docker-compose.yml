@@ -1,0 +1,24 @@
+# docker-compose.yml
+# Purpose: Spin up local infrastructure for testing and development.
+# Run with: docker-compose up -d
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: neuro_user
+      POSTGRES_PASSWORD: neuro_password
+      POSTGRES_DB: neuro_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neuro_user -d neuro_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
