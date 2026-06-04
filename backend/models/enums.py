@@ -44,3 +44,18 @@ class VectorStore(str, Enum):
 
     CHROMA = "chroma"
     QDRANT = "qdrant"
+
+
+class RetrievalStrategy(str, Enum):
+    """
+    How the retrieval layer fetches context for a query.
+
+    VECTOR: semantic similarity search against the vector store only.
+    GRAPH:  relationship traversal against Neo4j only.
+    HYBRID: both strategies combined, results reranked before returning.
+            Default for all queries — best results in practice.
+    """
+
+    VECTOR = "vector"
+    GRAPH = "graph"
+    HYBRID = "hybrid"
