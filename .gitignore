@@ -70,7 +70,9 @@ secrets/
 .secrets/
 
 # ─── AI / ML Artifacts ────────────────────────────────────────────────────────
-models/
+# NOTE: Do NOT add "models/" here — that would ignore backend/models/ source code.
+# Use specific paths for ML artifacts instead:
+ml_models/
 checkpoints/
 *.pkl
 *.bin
