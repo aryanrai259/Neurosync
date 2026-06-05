@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # neo4j_user: str = Field(default="neo4j")
     # neo4j_password: str = Field(default="")
 
+    # ─── Phase 3 (Ingestion) ──────────────────────────────────────────────────
+    github_token: str | None = Field(default=None, description="GitHub personal access token for ingestion adapter.")
+
     # ─── Phase 4 (LLM API Keys) — uncomment when Phase 4 begins ─────────────
     # openai_api_key: str = Field(default="")
     # gemini_api_key: str = Field(default="")
