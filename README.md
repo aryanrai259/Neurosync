@@ -4,81 +4,132 @@
 
 ---
 
-## What This Is
+## Current Project Status
 
-Company Brain transforms fragmented organizational data into a queryable knowledge graph. Engineers can ask natural language questions and get answers grounded in real company history — decisions, code context, discussions, and documentation.
+**Completed:**
+- Phase 0: Repository Setup
+- Phase 1: Domain Models
+- Phase 2: Database Layer
+- Phase 3: Ingestion Pipeline
+
+**Current Capabilities:**
+- Create ingestion jobs
+- Ingest synthetic events
+- Ingest GitHub issues/PRs
+- Normalize source events
+- Deduplicate events
+- Extract entities
+- Persist events
+- Persist entity registry
+- Full test suite passing
+
+**Test Status:**
+- 414 tests passing
+- 0 failed
+- 0 warnings
+
+**Next:**
+- Phase 4: Vector + Graph Retrieval Layer
 
 ---
 
-## Architecture Overview
+## Current Architecture
 
-```
-Ingestion Sources
-(Slack, GitHub, Jira, Notion, Email)
+```text
+GitHub
+Slack (synthetic)
         │
         ▼
   Ingestion Layer
-  (normalize → NormalizedEvent)
         │
         ▼
-  Storage Layer
-  (PostgreSQL + ChromaDB + Neo4j)
+   PostgreSQL
         │
         ▼
-  Retrieval Layer
-  (vector + graph + hybrid)
+      API
+```
+
+---
+
+## Target Architecture
+
+```text
+GitHub
+Slack
+Jira
+Notion
         │
         ▼
-  Reasoning Layer
-  (orchestrator → planner → composer)
+    Ingestion
         │
         ▼
-  API Layer
-  (FastAPI → /query, /ingest, /health)
+    Postgres
+    ChromaDB
+      Neo4j
         │
         ▼
-  Frontend
-  (Next.js chat interface)
+    Retrieval
+        │
+        ▼
+    Reasoning
 ```
 
 ---
 
 ## Directory Structure
 
-```
+```text
 neuro/
 ├── backend/
-│   ├── api/            # FastAPI routes — one file per resource
-│   ├── ingestion/      # Source adapters → NormalizedEvent
-│   ├── retrieval/      # Vector, graph, hybrid retrieval
-│   ├── reasoning/      # Orchestrator, planner, composer
-│   ├── graph/          # Neo4j graph transformers
-│   ├── memory/         # Short-term session + long-term memory
-│   ├── models/         # Pydantic data models (canonical types)
-│   └── core/           # Config, logging, database connections
-├── frontend/           # Next.js chat interface
-├── tests/              # Mirrors backend structure
+│   ├── api/
+│   │   └── v1/
+│   │       └── ingest.py       # FastAPI ingestion endpoints
+│   ├── core/                   # Config, logging, DB session
+│   ├── db/                     # DB models, alembic, repositories
+│   ├── ingestion/
+│   │   ├── adapters/
+│   │   │   ├── base.py
+│   │   │   ├── synthetic.py    # Pass-through synthetic adapter
+│   │   │   └── github.py       # Live GitHub HTTP adapter
+│   │   ├── normalizers/
+│   │   │   ├── _parsing.py
+│   │   │   ├── slack.py
+│   │   │   ├── github.py
+│   │   │   └── jira.py
+│   │   ├── worker.py           # Orchestration logic
+│   │   ├── schemas.py          # Adapter/API schemas
+│   │   ├── constants.py
+│   │   ├── deduplicator.py
+│   │   └── entity_extractor.py
+│   ├── models/                 # Canonical Pydantic domain models
+│   ├── retrieval/              # (Planned) Vector, graph, hybrid
+│   ├── reasoning/              # (Planned) Orchestrator, planner
+│   ├── graph/                  # (Planned) Neo4j transformers
+│   └── memory/                 # (Planned) Short-term session memory
+├── frontend/                   # (Planned) Next.js chat interface
+├── tests/
+│   ├── integration/
+│   └── unit/
 ├── docs/
-│   ├── diagrams/       # Architecture + dependency + flow diagrams
-│   └── adr/            # Architecture Decision Records
-├── scripts/            # One-off ops/setup scripts
-└── docker/             # Dockerfiles + compose configs
+├── scripts/
+└── docker/
 ```
 
 ---
 
 ## Module Ownership
 
-| Module | Responsibility | Calls | Called By |
-|---|---|---|---|
-| `api/` | HTTP surface | `reasoning/orchestrator` | Client |
-| `ingestion/` | Raw → NormalizedEvent | `models/event` | Ingestion workers |
-| `retrieval/` | Fetch relevant context | `storage/*` | `reasoning/planner` |
-| `reasoning/` | Plan + compose answers | `retrieval/*`, `graph/*` | `api/` |
-| `graph/` | Entity + relationship extraction | `models/entity` | `ingestion/`, `reasoning/` |
-| `memory/` | Session + long-term memory | `storage/postgres` | `reasoning/orchestrator` |
-| `models/` | Canonical data types | — | Everything |
-| `core/` | Config, DB, logging | — | Everything |
+| Module | Status | Responsibility | Calls | Called By |
+|---|---|---|---|---|
+| `api/` | Implemented | HTTP surface | `ingestion/`, `reasoning/` | Client |
+| `ingestion/` | Implemented | Raw → NormalizedEvent | `models/`, `db/` | `api/` |
+| `db/` | Implemented | Database repositories | `models/` | `api/`, `ingestion/` |
+| `models/` | Implemented | Canonical data types | — | Everything |
+| `core/` | Implemented | Config, DB, logging | — | Everything |
+| `retrieval/` | Planned | Fetch relevant context | `storage/*` | `reasoning/planner` |
+| `reasoning/` | Planned | Plan + compose answers | `retrieval/*`, `graph/*` | `api/` |
+| `graph/` | Planned | Entity extraction | `models/entity` | `ingestion/`, `reasoning/` |
+| `memory/` | Planned | Session + long-term memory | `storage/postgres` | `reasoning/orchestrator` |
 
 ---
 
@@ -96,7 +147,75 @@ neuro/
 
 ## Getting Started
 
-> Setup instructions will be added as each phase is implemented.
+### Prerequisites
+- Python 3.11+
+- Docker & Docker Compose
+- (Optional) GitHub Token for live integration
+
+### Environment Setup
+1. Copy `.env.example` to `.env`
+2. Update `GITHUB_TOKEN` in `.env` if testing the GitHub adapter.
+3. Install dependencies:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Or .venv\Scripts\activate on Windows
+pip install -r requirements-dev.txt
+```
+
+### Database Setup
+```bash
+docker compose up -d
+alembic upgrade head
+```
+
+### Running Tests
+```bash
+pytest tests/ -v
+```
+
+### Starting API
+```bash
+uvicorn backend.main:app --reload
+```
+
+---
+
+## API Documentation
+
+### `POST /api/v1/ingest/synthetic`
+Accepts pre-formed generic raw events and processes them synchronously for deduplication and persistence.
+
+**Request Body:**
+```json
+{
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "requested_by": "test-runner",
+  "events": [
+    {
+      "source": "slack",
+      "source_id": "msg-001",
+      "raw_content": "auth-service is down",
+      "raw_author": "alice",
+      "raw_timestamp": "2025-01-15T14:22:00Z"
+    }
+  ]
+}
+```
+
+### `POST /api/v1/ingest/github`
+Fires an asynchronous background worker that uses the GitHub REST API to fetch recent issues and PRs.
+
+**Request Body:**
+```json
+{
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "requested_by": "test-runner",
+  "repo": "owner/repo"
+}
+```
+
+### `GET /health`
+Returns system health status.
 
 ---
 
@@ -107,10 +226,10 @@ neuro/
 | 0 | Repo initialization + architecture | ✅ Done |
 | 1 | Core domain models | ✅ Done |
 | 2 | Database layer & migrations | ✅ Done |
-| 3 | Ingestion pipeline | ⬜ Not started |
+| 3 | Ingestion pipeline | ✅ Done |
 | 4 | Vector + graph retrieval | ⬜ Not started |
 | 5 | Reasoning layer | ⬜ Not started |
-| 6 | API layer | ⬜ Not started |
+| 6 | API layer | 🟡 In Progress |
 | 7 | Frontend | ⬜ Not started |
 | 8 | Evaluation + observability | ⬜ Not started |
 
