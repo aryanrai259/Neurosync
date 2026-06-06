@@ -1,61 +1,78 @@
 # backend/memory
 
+Phase 4A–4B: Memory Construction and Vector Indexing
+
 ## Purpose
-Manages two memory scopes for Company Brain:
-1. **Short-term (session memory)** — tracks conversation context within a single user session
-2. **Long-term (workspace memory)** — persists important decisions, summaries, and entity snapshots across sessions
 
-## Responsibilities
-- Store and retrieve conversation history for multi-turn queries
-- Summarize long conversations to fit within LLM context windows
-- Persist workspace-level knowledge summaries
-- Provide memory context to the reasoning/orchestrator
+Converts a `NormalizedEvent` (output of Phase 3) into a structured `MemoryObject`,
+then optionally indexes it into PgVector for semantic retrieval.
 
-## Files (to be added)
+## Module Map
+
 | File | Responsibility |
-|---|---|
-| `session_store.py` | CRUD for short-term session memory (Redis) |
-| `workspace_memory.py` | Long-term workspace knowledge (PostgreSQL) |
-| `summarizer.py` | Summarizes conversation history when it grows too long |
-| `memory_manager.py` | Unified interface — orchestrator calls only this |
+|------|----------------|
+| `memory_object.py` | `MemoryObject`, `EntityRef`, `RelationshipRef` — the in-memory transport types |
+| `entity_resolver.py` | Three-tier deterministic entity extraction (structured fields → seed lists → regex) |
+| `relationship_extractor.py` | Seven named deterministic relationship rules |
+| `memory_constructor.py` | Orchestrates resolution, extraction, and persistence for one event |
+| `embeddings.py` | Generates vector embeddings via local Ollama (`nomic-embed-text`) |
+| `vector_indexer.py` | Embeds a MemoryObject's content and stores it in the `event_embeddings` PgVector table |
 
-## Dependency Arrow
+## Data Flow
+
 ```
-reasoning/orchestrator.py
-  ↓
-memory/memory_manager.py
-  ├── memory/session_store.py     → Redis
-  └── memory/workspace_memory.py → PostgreSQL
-        ↓
-reasoning/composer.py (receives memory context)
+NormalizedEvent
+      │
+      ▼
+ EntityResolver          <- Tier 1: structured fields (confidence=1.0)
+      │                  <- Tier 2: seed list exact match (confidence=1.0)
+      │                  <- Tier 3: regex pattern match (confidence=0.85)
+      ▼
+[EntityRef, ...]
+      │
+      ▼
+RelationshipExtractor    <- 7 named rules: AUTHORED, AFFECTS, DISCUSSED_IN,
+      │                                    REFERENCES, OWNS, DEPENDS_ON, RELATED_TO
+      ▼
+MemoryObject (frozen Pydantic model)
+      │
+      +---> memory_objects table (PostgreSQL, write-once audit log)
+      +---> event_embeddings table (PgVector, Phase 4B)
+      +---> graph/writer.py (Neo4j projection, Phase 4C)
 ```
 
-## Inputs
-- `session_id: str` — identifies the conversation
-- `workspace_id: str` — scopes long-term memory
-- New messages to append to session
+## Extraction Tiers
 
-## Outputs
-- `SessionContext` — recent messages + summary (for reasoning/composer)
-- `WorkspaceSnapshot` — key facts + decisions for the workspace
+### Tier 1: Structured Fields (confidence=1.0)
+- `author_id` to PERSON entity (if not "bot", "system", "unknown")
+- GitHub `metadata.repo` to REPOSITORY entity
+- GitHub `metadata.labels` containing "decision"/"adr" to DECISION entity
 
-## Dependencies
-- `core/database.py` (Redis + PostgreSQL clients)
-- `core/config.py`
-- `models/memory.py`
+### Tier 2: Seed Lists (confidence=1.0)
+- `KNOWN_SERVICE_NAMES` from `ingestion/constants.py`
+- `KNOWN_TEAM_NAMES` from `ingestion/constants.py`
+- Built-in tech names: redis, postgres, kafka, etc.
 
-## Future Extensions
-- Episodic memory (remember past queries and their answers)
-- User-specific memory profiles
-- Memory decay / TTL policies
-- Explainable memory ("I'm using this context because...")
+### Tier 3: Regex Patterns (confidence=0.85)
+- Jira/Linear tickets: `[A-Z]{2,10}-\d{1,6}` to TICKET
+- Slack @mentions: `@username` to PERSON
 
-## Example Flow
-```
-User asks: "What did we decide about the auth migration?"
-  → orchestrator.py → memory_manager.py
-  → session_store.py: last 5 messages in this session
-  → workspace_memory.py: stored decision record for "auth migration"
-  → combined context passed to composer.py
-  → LLM answers with full historical awareness
-```
+## Relationship Rules
+
+| Rule | Predicate | Condition |
+|------|-----------|-----------|
+| `_rule_authored` | AUTHORED | structured_author_id person -> event |
+| `_rule_affects` | AFFECTS | event -> service mention |
+| `_rule_discussed_in` | DISCUSSED_IN | service -> event |
+| `_rule_references` | REFERENCES | event -> ticket mention |
+| `_rule_owns` | OWNS | team + service co-occurrence (conf=0.6) |
+| `_rule_depends_on` | DEPENDS_ON | GitHub + exactly 2 services (conf=0.7) |
+| `_rule_related_to` | RELATED_TO | non-person co-occurrence fallback (conf=0.6) |
+
+## Design Invariants
+
+- `MemoryObject` is frozen. Downstream consumers must not mutate it.
+- `entities` and `relationships` are always lists, never None.
+- `memory_objects` table is write-once. Replay = `delete_by_event_id` then re-run.
+- Phase 4A, 4B, and 4C are independently skippable — the worker continues on failure.
+- No LLM extraction in Phase 4. All logic is deterministic and testable.

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
     # ─── Vector Store ─────────────────────────────────────────────────────────
     default_vector_store: VectorStore = Field(
-        default=VectorStore.CHROMA,
+        default=VectorStore.PGVECTOR,
         description="Default vector store backend for embeddings.",
     )
 
@@ -82,7 +82,34 @@ class Settings(BaseSettings):
     # ─── Phase 3 (Ingestion) ──────────────────────────────────────────────────
     github_token: str | None = Field(default=None, description="GitHub personal access token for ingestion adapter.")
 
-    # ─── Phase 4 (LLM API Keys) — uncomment when Phase 4 begins ─────────────
+    # ─── Phase 4A (Memory Construction) ──────────────────────────────────────
+    # No additional config needed; uses existing DB connection.
+
+    # ─── Phase 4B (Embeddings / PgVector) ────────────────────────────────────
+    embedding_model: str = Field(
+        default="nomic-embed-text",
+        description="Ollama model name for generating embeddings.",
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL of the local Ollama server.",
+    )
+
+    # ─── Phase 4C (Neo4j Graph) ───────────────────────────────────────────────
+    neo4j_uri: str = Field(
+        default="bolt://localhost:7687",
+        description="Neo4j Bolt connection URI.",
+    )
+    neo4j_user: str = Field(
+        default="neo4j",
+        description="Neo4j username.",
+    )
+    neo4j_password: str = Field(
+        default="neuro_password",
+        description="Neo4j password.",
+    )
+
+    # ─── Phase 4 (LLM API Keys — unused until Phase 5) ───────────────────────
     # openai_api_key: str = Field(default="")
     # gemini_api_key: str = Field(default="")
     # anthropic_api_key: str = Field(default="")

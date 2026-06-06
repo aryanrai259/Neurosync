@@ -44,6 +44,7 @@ class VectorStore(str, Enum):
 
     CHROMA = "chroma"
     QDRANT = "qdrant"
+    PGVECTOR = "pgvector"
 
 
 class RetrievalStrategy(str, Enum):

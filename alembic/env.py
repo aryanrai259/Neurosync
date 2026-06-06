@@ -17,6 +17,8 @@ from backend.db.models.event import EventModel  # noqa
 from backend.db.models.memory import WorkspaceSnapshotModel  # noqa
 from backend.db.models.ingestion import IngestionJobModel  # noqa
 from backend.db.models.entity_registry import EntityRegistryModel  # noqa
+from backend.db.models.memory_object import MemoryObjectModel  # noqa
+from backend.db.models.event_embedding import EventEmbeddingModel  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

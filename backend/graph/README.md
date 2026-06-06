@@ -1,65 +1,63 @@
 # backend/graph
 
+Phase 4C: Graph Memory — Neo4j Projection
+
 ## Purpose
-Extracts entities and relationships from `NormalizedEvent` objects and
-builds the Neo4j knowledge graph. This is what makes Company Brain able to
-answer relationship-based questions ("who worked on X?", "what decisions
-led to Y?").
 
-## Responsibilities
-- Extract named entities from event content (people, services, tickets, PRs)
-- Identify relationships between entities (authored, discussed, decided, depends_on)
-- Write entity nodes and relationship edges to Neo4j
-- Provide graph query helpers for the retrieval layer
+Writes entities and relationships from a `MemoryObject` into Neo4j as a graph projection.
+Neo4j is a **projection of PostgreSQL**, not the source of truth.
+If the graph is lost, it can be fully rebuilt by replaying all `memory_objects` rows.
 
-## Files (to be added)
+## Module Map
+
 | File | Responsibility |
-|---|---|
-| `transformer.py` | Converts `NormalizedEvent` → graph nodes + edges |
-| `entity_extractor.py` | NLP/LLM-based entity extraction from text |
-| `relationship_builder.py` | Infers relationships between extracted entities |
-| `neo4j_client.py` | Neo4j driver wrapper (queries, writes, transactions) |
-| `schema.py` | Defines node labels and relationship types |
+|------|----------------|
+| `client.py` | Neo4j async driver singleton — `get_driver()`, `close_driver()`, `verify_connectivity()` |
+| `schema.py` | Idempotent constraint and index creation — call once at startup |
+| `writer.py` | `GraphWriter.write(memory_object)` — upserts Event, entity, and relationship nodes |
+| `queries.py` | Named read-only Cypher queries for retrieval (Phase 4D) |
 
-## Dependency Arrow
-```
-ingestion/ (NormalizedEvent)
-  ↓
-graph/transformer.py
-  ├── graph/entity_extractor.py   (LLM/NER)
-  ├── graph/relationship_builder.py
-  └── graph/neo4j_client.py       → Neo4j
-        ↑
-retrieval/graph_retriever.py (reads from Neo4j)
-```
+## Node Types
 
-## Inputs
-- `NormalizedEvent` from ingestion pipeline
+| Label | Uniqueness Constraint |
+|-------|----------------------|
+| `Event` | `event_id` (UUID from PostgreSQL) |
+| `Person` | `(workspace_id, canonical_name)` |
+| `Team` | `(workspace_id, canonical_name)` |
+| `Service` | `(workspace_id, canonical_name)` |
+| `Repository` | `(workspace_id, canonical_name)` |
+| `Ticket` | `(workspace_id, canonical_name)` |
+| `Document` | `(workspace_id, canonical_name)` |
 
-## Outputs
-- Graph nodes written to Neo4j: `Person`, `Service`, `Decision`, `Event`, `Repository`, `Ticket`
-- Graph edges: `AUTHORED`, `DISCUSSED`, `DECIDED`, `DEPENDS_ON`, `MENTIONED_IN`
+## Relationship Types
 
-## Dependencies
-- `models/event.py`
-- `models/entity.py`
-- `core/database.py` (Neo4j connection)
-- `core/config.py`
+| Predicate | Meaning |
+|-----------|---------|
+| `AUTHORED` | Person authored an Event |
+| `OWNS` | Team owns a Service |
+| `DEPENDS_ON` | Service depends on another Service |
+| `REFERENCES` | Event references a Ticket |
+| `DISCUSSED_IN` | Service was discussed in an Event |
+| `AFFECTS` | Event affects a Service |
+| `RELATED_TO` | Generic co-occurrence fallback |
 
-## Future Extensions
-- Temporal graph (track how relationships evolve over time)
-- Confidence scoring on extracted relationships
-- Community detection (team/project clustering)
-- Graph schema versioning + migrations
+## Available Read Queries
 
-## Example Flow
-```
-NormalizedEvent(
-  source="github",
-  content="Merged PR #234: Move session storage to Redis",
-  author="alice@company.com"
-)
-  → entity_extractor.py → ["alice", "Redis", "session storage", "PR #234"]
-  → relationship_builder.py → alice AUTHORED PR#234, PR#234 MENTIONS Redis
-  → neo4j_client.py → nodes + edges written to graph
-```
+| Function | Purpose |
+|----------|---------|
+| `find_events_by_entity` | All event_ids linked to a named entity |
+| `find_neighborhood` | 1-2 hop entity neighborhood |
+| `find_service_owners` | Teams owning a given service |
+
+## Design Invariants
+
+- All writes use `MERGE` — idempotent. Re-processing the same MemoryObject does not create duplicates.
+- Confidence is updated to the higher value on `MERGE` match.
+- The graph writer logs and continues if individual node/edge writes fail.
+- `create_schema()` must be called once at application startup (FastAPI lifespan).
+- All nodes and queries are workspace-scoped via `workspace_id`.
+
+## Docker Setup
+
+Neo4j is started with `docker-compose up -d`. The browser UI is at `http://localhost:7474`.
+Default credentials: `neo4j` / `neuro_password` (set in `.env`).

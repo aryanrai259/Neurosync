@@ -11,7 +11,7 @@ from backend.db.repositories.workspace_repo import workspace_repo
 from backend.db.repositories.event_repo import event_repo
 from backend.db.repositories.ingestion_repo import ingestion_repo
 from backend.db.repositories.entity_registry_repo import entity_registry_repo
-from backend.models.enums import SourceType, EntityType, IngestionStatus
+from backend.models.enums import SourceType, EntityType, IngestionStatus, EmbeddingStatus
 
 pytestmark = pytest.mark.asyncio
 
@@ -86,9 +86,8 @@ async def test_event_repository(session: AsyncSession):
     assert event2.id == event.id
     assert event2.content == "Fixed the auth bug (updated)"
 
-    # Get unembedded
-    unembedded = await event_repo.get_unembedded_events(session)
-    assert any(e.id == event.id for e in unembedded)
+    # Check embedding status
+    assert event2.embedding_status == EmbeddingStatus.PENDING
 
 
 async def test_ingestion_repository(session: AsyncSession):

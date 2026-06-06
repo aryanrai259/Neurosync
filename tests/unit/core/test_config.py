@@ -47,7 +47,7 @@ class TestSettingsDefaults:
 
     def test_default_vector_store(self):
         s = Settings()
-        assert s.default_vector_store == VectorStore.CHROMA
+        assert s.default_vector_store == VectorStore.PGVECTOR
 
     def test_default_retention_days(self):
         s = Settings()

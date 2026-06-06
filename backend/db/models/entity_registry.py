@@ -7,6 +7,7 @@
 from uuid import UUID
 
 from sqlalchemy import Enum, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.db.models.base import GUID, Base, TimestampMixin, UUIDMixin
@@ -25,7 +26,13 @@ class EntityRegistryModel(Base, UUIDMixin, TimestampMixin):
     
     entity_type: Mapped[EntityType] = mapped_column(Enum(EntityType), nullable=False)
     canonical_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    
+    aliases: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        comment="Alternative names this entity is known by. Used for resolution lookup.",
+    )
+
     graph_sync_status: Mapped[SyncStatus] = mapped_column(
         Enum(SyncStatus), 
         default=SyncStatus.PENDING,

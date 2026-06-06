@@ -1,12 +1,15 @@
 # Purpose:      Ingestion worker — orchestrates the full pipeline for one job.
-#               Receives a job_id and a list of RawEvents, then:
+#               Receives a job_id, then:
 #                 1. Marks the job PROCESSING
 #                 2. Fetches events from the adapter
 #                 3. Normalizes each event
 #                 4. Deduplicates against the events table
 #                 5. Persists new events via event_repo
-#                 6. Extracts entities and registers them
-#                 7. Marks the job COMPLETED or FAILED
+#                 6. Extracts entities and registers them (Phase 3 legacy)
+#                 7. Constructs MemoryObject and persists it (Phase 4A)
+#                 8. Indexes vector embedding (Phase 4B)
+#                 9. Writes graph projection (Phase 4C)
+#                10. Marks the job COMPLETED or FAILED
 #
 #               Business logic lives here — NOT in the API layer.
 #               The worker is a plain async class. It can be called from:
@@ -16,15 +19,17 @@
 #               Swapping the runner does not require changing this class.
 #
 # Called By:    api/v1/ingest.py (via FastAPI BackgroundTasks)
-# Calls:        ingestion/adapters/synthetic.py (SyntheticAdapter)
-#               ingestion/normalizers/slack.py  (SlackNormalizer)
-#               ingestion/normalizers/github.py (GithubNormalizer)
-#               ingestion/normalizers/jira.py   (JiraNormalizer)
-#               ingestion/deduplicator.py       (Deduplicator)
-#               ingestion/entity_extractor.py   (BasicEntityExtractor)
+# Calls:        ingestion/adapters/* (adapter fetch)
+#               ingestion/normalizers/* (normalizers)
+#               ingestion/deduplicator.py (Deduplicator)
+#               ingestion/entity_extractor.py (BasicEntityExtractor)
+#               memory/memory_constructor.py (MemoryConstructor)  [Phase 4A]
+#               memory/vector_indexer.py (VectorIndexer)          [Phase 4B]
+#               graph/writer.py (GraphWriter)                      [Phase 4C]
 #               db/repositories/event_repo.py
 #               db/repositories/ingestion_repo.py
 #               db/repositories/entity_registry_repo.py
+#               db/repositories/memory_repo.py
 # Dependencies: sqlalchemy (AsyncSession), python stdlib (logging, time, uuid)
 # Test File:    tests/integration/ingestion/test_worker.py
 
@@ -37,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.db.repositories.entity_registry_repo import EntityRegistryRepository
 from backend.db.repositories.event_repo import EventRepository
 from backend.db.repositories.ingestion_repo import IngestionRepository
+from backend.db.repositories.memory_repo import MemoryObjectRepository
 from backend.db.session import async_session
 from backend.ingestion.adapters.base import BaseAdapter
 from backend.ingestion.deduplicator import Deduplicator
@@ -45,6 +51,9 @@ from backend.ingestion.normalizers.github import GithubNormalizer
 from backend.ingestion.normalizers.jira import JiraNormalizer
 from backend.ingestion.normalizers.slack import SlackNormalizer
 from backend.ingestion.schemas import RawEvent
+from backend.memory.entity_resolver import EntityResolver
+from backend.memory.memory_constructor import MemoryConstructor
+from backend.memory.relationship_extractor import RelationshipExtractor
 from backend.models.enums import IngestionStatus, SourceType
 
 logger = logging.getLogger(__name__)
@@ -68,6 +77,10 @@ class IngestionWorker:
     All DB repositories are passed in; the worker never imports repo singletons.
     The session_factory defaults to the global async_session from db/session.py
     but can be overridden in tests to point at a test database.
+
+    Phase 4A adds: memory_constructor — builds MemoryObject after event is persisted.
+    Phase 4B adds: vector_indexer — embeds MemoryObject content into PgVector.
+    Phase 4C adds: graph_writer — writes graph projection to Neo4j.
     """
 
     def __init__(
@@ -78,6 +91,9 @@ class IngestionWorker:
         event_repo: EventRepository,
         ingestion_repo: IngestionRepository,
         entity_registry_repo: EntityRegistryRepository,
+        memory_constructor: MemoryConstructor | None = None,
+        vector_indexer=None,   # Phase 4B: VectorIndexer | None
+        graph_writer=None,     # Phase 4C: GraphWriter | None
         session_factory=None,
     ) -> None:
         self.adapter = adapter
@@ -86,6 +102,9 @@ class IngestionWorker:
         self.event_repo = event_repo
         self.ingestion_repo = ingestion_repo
         self.entity_registry_repo = entity_registry_repo
+        self.memory_constructor = memory_constructor
+        self.vector_indexer = vector_indexer
+        self.graph_writer = graph_writer
         # Use the global session factory by default; override in tests
         self.session_factory = session_factory or async_session
 
@@ -172,15 +191,20 @@ class IngestionWorker:
         self, session: AsyncSession, workspace_id: UUID, raw: RawEvent
     ) -> None:
         """
-        Process a single RawEvent:
+        Process a single RawEvent through the full pipeline:
           1. Look up the normalizer for this source type.
           2. Normalize the raw event.
           3. Check for duplicate.
-          4. Write to events table.
-          5. Extract entities and register them.
+          4. Write to events table — capture the persisted event_id.
+          5. Extract entities and register them (Phase 3 legacy path).
+          6. Construct MemoryObject and persist it (Phase 4A).
+          7. Index vector embedding (Phase 4B, if vector_indexer present).
+          8. Write graph projection (Phase 4C, if graph_writer present).
 
         Raises _DuplicateEvent if the event already exists.
         Raises Exception if normalization or persistence fails.
+        Phase 4 steps (6, 7, 8) log and continue on failure — they do not
+        fail the entire ingestion job.
         """
         normalizer = _NORMALIZER_MAP.get(raw.source)
         if normalizer is None:
@@ -199,8 +223,8 @@ class IngestionWorker:
         if is_dup:
             raise _DuplicateEvent()
 
-        # Persist event
-        await self.event_repo.upsert_event(
+        # Persist event — capture returned event_id for Phase 4 provenance
+        event_model = await self.event_repo.upsert_event(
             session=session,
             workspace_id=workspace_id,
             source=normalized.source,
@@ -213,8 +237,9 @@ class IngestionWorker:
             url=normalized.url,
             metadata_json=normalized.metadata,
         )
+        event_id: UUID = event_model.id
 
-        # Extract and register entities
+        # Phase 3 legacy: extract entities and register flat mentions
         mentions = self.extractor.extract(normalized.content)
         for mention in mentions:
             await self.entity_registry_repo.register_entity(
@@ -223,6 +248,41 @@ class IngestionWorker:
                 entity_type=mention.entity_type,
                 canonical_name=mention.name,
             )
+
+        # ── Phase 4A: Memory Construction ────────────────────────────────────
+        if self.memory_constructor is not None:
+            try:
+                memory_object = await self.memory_constructor.construct(
+                    event=normalized,
+                    event_id=event_id,
+                    session=session,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "memory construction failed for event %s: %s — continuing",
+                    event_id, exc,
+                )
+                return  # Cannot proceed to 4B/4C without a memory object
+
+            # ── Phase 4B: Vector Indexing ─────────────────────────────────────
+            if self.vector_indexer is not None:
+                try:
+                    await self.vector_indexer.index(memory_object, session)
+                except Exception as exc:
+                    logger.warning(
+                        "vector indexing failed for event %s: %s — continuing",
+                        event_id, exc,
+                    )
+
+            # ── Phase 4C: Graph Projection ────────────────────────────────────
+            if self.graph_writer is not None:
+                try:
+                    await self.graph_writer.write(memory_object)
+                except Exception as exc:
+                    logger.warning(
+                        "graph write failed for event %s: %s — continuing",
+                        event_id, exc,
+                    )
 
 
 class _DuplicateEvent(Exception):

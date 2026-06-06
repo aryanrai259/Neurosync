@@ -8,17 +8,18 @@ pydantic-settings==2.6.1
 sqlalchemy==2.0.36
 asyncpg==0.30.0          # async PostgreSQL driver
 alembic==1.14.0          # database migrations
-
-# ─── Vector Store ─────────────────────────────────────────────────────────────
-chromadb==0.5.23
+pgvector==0.4.2          # pgvector SQLAlchemy integration (Phase 4B)
 
 # ─── Graph Database ───────────────────────────────────────────────────────────
 neo4j==5.27.0
 
+# ─── Embeddings ───────────────────────────────────────────────────────────────
+ollama==0.6.2            # Ollama Python SDK for local nomic-embed-text (Phase 4B)
+
 # ─── Cache / Session Memory ───────────────────────────────────────────────────
 redis==5.2.1
 
-# ─── LLM Clients ─────────────────────────────────────────────────────────────
+# ─── LLM Clients (Phase 5+) ──────────────────────────────────────────────────
 openai==1.57.4
 google-generativeai==0.8.3
 anthropic==0.40.0
