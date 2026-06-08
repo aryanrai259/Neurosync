@@ -24,12 +24,10 @@
 - Full test suite passing
 
 **Test Status:**
-- 414 tests passing
-- 0 failed
-- 0 warnings
+- All tests passing including reasoning layer integration
 
 **Next:**
-- Phase 4: Vector + Graph Retrieval Layer
+- Phase 6/7: Full API expansion and Frontend hookup
 
 ---
 
@@ -155,11 +153,12 @@ neuro/
 ### Environment Setup
 1. Copy `.env.example` to `.env`
 2. Update `GITHUB_TOKEN` in `.env` if testing the GitHub adapter.
-3. Install dependencies:
+3. Configure your LLM by setting `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY` (e.g. Gemini, OpenAI).
+4. Install dependencies:
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Or .venv\Scripts\activate on Windows
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 ```
 
 ### Database Setup
@@ -217,6 +216,17 @@ Fires an asynchronous background worker that uses the GitHub REST API to fetch r
 ### `GET /health`
 Returns system health status.
 
+### `POST /api/v1/reasoning/query`
+Executes a single-pass hybrid retrieval pipeline utilizing the LLM Provider configured in your `.env`.
+
+**Request Body:**
+```json
+{
+  "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
+  "query": "Who owns auth-service?"
+}
+```
+
 ---
 
 ## Phase Tracker
@@ -227,9 +237,9 @@ Returns system health status.
 | 1 | Core domain models | ✅ Done |
 | 2 | Database layer & migrations | ✅ Done |
 | 3 | Ingestion pipeline | ✅ Done |
-| 4 | Vector + graph retrieval | ⬜ Not started |
-| 5 | Reasoning layer | ⬜ Not started |
-| 6 | API layer | 🟡 In Progress |
+| 4 | Vector + graph retrieval | ✅ Done |
+| 5 | Reasoning layer | ✅ Done |
+| 6 | API layer | ✅ Done |
 | 7 | Frontend | ⬜ Not started |
 | 8 | Evaluation + observability | ⬜ Not started |
 
