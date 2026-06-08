@@ -114,6 +114,14 @@ class Settings(BaseSettings):
     # gemini_api_key: str = Field(default="")
     # anthropic_api_key: str = Field(default="")
 
+    # ─── Phase 5 (Reasoning Layer LLM Config) ─────────────────────────────────
+    llm_provider: str = Field(default="mock", description="LLM provider: mock, openai, anthropic, gemini, groq, etc.")
+    llm_model: str = Field(default="mock-model", description="Specific model name to use.")
+    llm_api_key: str | None = Field(default=None, description="API key for the provider.")
+    llm_base_url: str | None = Field(default=None, description="Optional base URL for the LLM API.")
+    llm_timeout_seconds: int = Field(default=30, description="Timeout for LLM API calls.")
+    llm_temperature: float = Field(default=0.0, description="Temperature for the LLM generation.")
+
 
 @lru_cache
 def get_settings() -> Settings:

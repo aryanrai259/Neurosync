@@ -21,10 +21,15 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+from backend.api.v1.config import router as config_router
+from backend.api.v1.reasoning import router as reasoning_router
+
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
 app.include_router(ingest_router, prefix="/api/v1")
+app.include_router(config_router)
+app.include_router(reasoning_router)
 
 
 @app.get("/health", tags=["meta"])
