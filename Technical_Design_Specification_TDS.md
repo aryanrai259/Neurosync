@@ -1,21 +1,22 @@
 # Technical Design Specification (TDS) - Company Brain
 
 Version: 1.0
-Status: Draft / Implementation Detail
+Status: Deprecated / Historical Reference
 Parent Document: Company Brain Final Master Architecture v2.1
+
+> **NOTE:** This document reflects the original technical design. The actual implementation differs significantly in Phase 4 and Phase 5 (using `pgvector` instead of Pinecone, deterministic routing instead of an LLM `QueryRouter`, and different folder layouts). See `docs/adr/0001-phase5-reconciliation.md` for full drift details.
 
 ## 1. Code Architecture: Folder-Level Ownership
 
 The following structure defines the exact responsibilities of each module in the `backend/` directory.
 
 ```text
-backend/
- ├── app/
- │   ├── api/
- │   │    ├── query.py          # Entry point for NL queries, handles synthesis response.
- │   │    ├── entity.py         # CRUD and resolution endpoints for entities.
- │   │    ├── admin.py          # System reset, reindexing, and audit tools.
- │   │    └── ingest.py         # Webhook endpoints for Slack, GitHub, etc.
+ backend/
+  ├── api/
+  │   └── v1/
+  │        ├── query.py          # Entry point for NL queries, handles synthesis response.
+  │        ├── config.py         # Config Registry endpoints.
+  │        └── ingest.py         # Webhook endpoints for Slack, GitHub, etc.
  │   │
  │   ├── retrieval/
  │   │    ├── planner.py        # Generates multi-step retrieval plans based on intent.
@@ -120,9 +121,9 @@ CREATE CONSTRAINT entity_id_unique FOR (n:Entity) REQUIRE n.id IS UNIQUE;
 CREATE CONSTRAINT service_name_unique FOR (s:Service) REQUIRE s.name IS UNIQUE;
 ```
 
-### 3.3 Vector Store (Pinecone/Milvus)
+### 3.3 Vector Store (PostgreSQL with pgvector)
 
-**Schema:**
+**memory_objects table:**
 ```json
 {
   "vector_id": "uuid",

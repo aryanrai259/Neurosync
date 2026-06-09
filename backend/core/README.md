@@ -13,14 +13,12 @@ from nothing else.
 - Provide authentication/JWT utilities
 - Define application-wide constants and enums
 
-## Files (to be added)
+## Files (Implemented)
 | File | Responsibility |
 |---|---|
 | `config.py` | Pydantic Settings — all env vars, validated at startup |
-| `database.py` | Connection pools for all databases (postgres, redis, neo4j, vector) |
-| `logging.py` | Structured JSON logging setup (used by all modules) |
-| `auth.py` | JWT validation, API key verification |
-| `exceptions.py` | Custom exception classes (IngestionError, RetrievalError, etc.) |
+
+*Note: Database connection pooling and sessions have been moved to their own dedicated domain at `backend/db/` to cleanly separate DB layer logic.*
 
 ## Dependency Arrow
 ```
