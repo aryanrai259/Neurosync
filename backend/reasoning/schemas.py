@@ -23,6 +23,18 @@ class RetrievalPlan(BaseModel):
     max_context_tokens: int
 
 
+class RetrievalTrace(BaseModel):
+    """Observability trace for retrieval execution."""
+    strategy: str
+    vector_results_count: int
+    graph_results_count: int
+    merged_results_count: int
+    retrieval_ms: int
+    vector_ms: int
+    graph_ms: int
+
+
+
 class GroundedAnswer(BaseModel):
     """Final output schema of the reasoning pipeline."""
     query_id: UUID

@@ -4,6 +4,9 @@ Final Master Architecture Manual
 
 Document version: 2.1System name: Company BrainStatus: Architecture manual for implementationOwners: Product, Backend, AI PlatformReviewers: Frontend, Infra, Security, Data / MLLast updated: 2026-05-30Intended audience: engineers, reviewers, interviewers, contributors, and future maintainers
 
+> **DRIFT RECONCILIATION UPDATE (2026-06-09):** This architecture document was authored during Phase 0-3. As of the completion of Phase 5, the implemented stack has evolved (adopting `pgvector` instead of ChromaDB/Pinecone, multi-provider LLMs instead of strict OpenAI dependency, and phase-based tracking instead of weeks). For the reconciled source-of-truth regarding Phase 4 and Phase 5 implementation details, refer to `docs/adr/0001-phase5-reconciliation.md`. **For current system state, see `docs/current/CURRENT_STATE.md`.** This document is preserved as a historical reference.
+
+
 1. Executive Summary
 
 Company Brain is a production-oriented organizational intelligence platform that ingests fragmented company activity from tools such as Slack, GitHub, Jira, Notion, documents, meetings, and structured datasets, then converts that activity into searchable memory, connected context, decision history, and evidence-backed answers.

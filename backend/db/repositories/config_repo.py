@@ -79,15 +79,11 @@ class ConfigRepository:
     async def upsert_team(
         self, session: AsyncSession, workspace_id: UUID, name: str, description: str | None = None
     ) -> ConfigTeamModel:
-        stmt = (
-            insert(ConfigTeamModel)
-            .values(workspace_id=workspace_id, name=name, description=description)
-            .on_conflict_do_update(
-                index_elements=["workspace_id", "name"],
-                set_={"description": description},
-            )
-            .returning(ConfigTeamModel)
-        )
+        stmt = insert(ConfigTeamModel).values(workspace_id=workspace_id, name=name, description=description)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["workspace_id", "name"],
+            set_={"description": stmt.excluded.description},
+        ).returning(ConfigTeamModel)
         result = await session.execute(stmt)
         await self.bump_version(session, workspace_id)
         return result.scalar_one()
@@ -148,15 +144,11 @@ class ConfigRepository:
     async def upsert_repository(
         self, session: AsyncSession, workspace_id: UUID, repo_url: str, service_id: UUID
     ) -> ConfigRepositoryModel:
-        stmt = (
-            insert(ConfigRepositoryModel)
-            .values(workspace_id=workspace_id, repo_url=repo_url, service_id=service_id)
-            .on_conflict_do_update(
-                index_elements=["workspace_id", "repo_url"],
-                set_={"service_id": service_id},
-            )
-            .returning(ConfigRepositoryModel)
-        )
+        stmt = insert(ConfigRepositoryModel).values(workspace_id=workspace_id, repo_url=repo_url, service_id=service_id)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["workspace_id", "repo_url"],
+            set_={"service_id": stmt.excluded.service_id},
+        ).returning(ConfigRepositoryModel)
         result = await session.execute(stmt)
         await self.bump_version(session, workspace_id)
         return result.scalar_one()

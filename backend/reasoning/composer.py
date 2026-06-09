@@ -7,6 +7,7 @@ import tiktoken
 
 from backend.reasoning.llm_client import llm_client
 from backend.reasoning.schemas import RetrievalPlan
+from backend.retrieval.schemas import RetrievedChunk
 
 SYSTEM_PROMPT = """
 You are an expert engineering assistant.
@@ -23,7 +24,7 @@ class Composer:
         # We use cl100k_base as a standard tokenizer approximation across providers
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
-    async def synthesize(self, query: str, plan: RetrievalPlan, retrieved_chunks: list[dict]) -> tuple[str, list[str]]:
+    async def synthesize(self, query: str, plan: RetrievalPlan, retrieved_chunks: list[RetrievedChunk]) -> tuple[str, list[str]]:
         """
         Synthesizes an answer and parses out proposed citations.
         Returns (answer_markdown, proposed_citations)
@@ -34,11 +35,11 @@ class Composer:
         current_tokens = 0
         
         for chunk in retrieved_chunks:
-            chunk_str = json.dumps(chunk)
+            chunk_str = chunk.model_dump_json()
             chunk_tokens = len(self.tokenizer.encode(chunk_str))
             
             if current_tokens + chunk_tokens <= budget:
-                accepted_chunks.append(chunk)
+                accepted_chunks.append(chunk.model_dump(mode="json"))
                 current_tokens += chunk_tokens
             else:
                 break # Drop remaining chunks to respect the strict budget

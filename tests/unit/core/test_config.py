@@ -27,7 +27,7 @@ class TestSettingsDefaults:
 
     def test_app_version_default(self):
         s = Settings()
-        assert s.app_version == "0.1.0"
+        assert s.app_version == "0.4.0"
 
     def test_debug_is_false_by_default(self):
         s = Settings()

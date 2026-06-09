@@ -1,8 +1,10 @@
 # Company Brain — Complete Implementation Plan
 
 **Document version:** 1.0  
-**Status:** Implementation Roadmap  
+**Status:** Deprecated / Historical Reference  
 **Parent document:** Company Brain Final Master Architecture v2.1  
+
+> **DRIFT RECONCILIATION UPDATE (2026-06-09):** This implementation plan was generated during Phase 0-4 and reflects the design thinking at that time. As of the completion of Phase 5, several architectural pivots were made (e.g., adopting `pgvector` instead of ChromaDB, building a dynamic provider-agnostic `llm_client.py` instead of hardcoding LangChain/OpenAI, and replacing the LLM QueryRouter with a deterministic intent classifier). Please refer to `docs/adr/0001-phase5-reconciliation.md` for the current source of truth.  
 **Audience:** Solo developer, engineering teams, technical reviewers, portfolio evaluators  
 **Estimated total duration:** 12–16 weeks (solo developer, part-time; 6–8 weeks full-time)
 

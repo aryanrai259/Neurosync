@@ -12,6 +12,18 @@ from backend.db.models.config import (
 pytestmark = pytest.mark.asyncio
 
 @pytest_asyncio.fixture
+async def db_session():
+    from backend.core.config import get_settings
+    from backend.db.session import get_engine
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    # Create a fresh engine to avoid stale connections from other test modules
+    fresh_engine = get_engine(get_settings().database_url)
+    maker = async_sessionmaker(bind=fresh_engine, class_=AsyncSession, expire_on_commit=False)
+    async with maker() as session:
+        yield session
+    await fresh_engine.dispose()
+
+@pytest_asyncio.fixture
 async def workspace_id(db_session):
     return uuid4()
 
@@ -21,6 +33,7 @@ async def test_duplicate_team_name(db_session, workspace_id):
     team2 = await config_repo.upsert_team(db_session, workspace_id, "Backend Team", "Updated")
     
     await db_session.commit()
+    db_session.expunge_all()
     
     teams = await config_repo.get_teams(db_session, workspace_id)
     assert len(teams) == 1
@@ -46,6 +59,7 @@ async def test_duplicate_repository_url(db_session, workspace_id):
     repo2 = await config_repo.upsert_repository(db_session, workspace_id, "https://github.com/org/repo", svc2.id)
     
     await db_session.commit()
+    db_session.expunge_all()
     
     repos = await config_repo.get_repositories(db_session, workspace_id)
     assert len(repos) == 1
@@ -81,21 +95,15 @@ async def test_invalid_ownership_references(db_session, workspace_id):
         await db_session.flush()
 
 async def test_dependency_cycle_detection(db_session, workspace_id):
-    # Config repo does not currently detect cycles. It allows them. 
-    # This is a known architectural drift/missing validation.
-    # We will write the test to assert it DOES NOT throw, which proves the bug exists.
     svc1 = await config_repo.upsert_service(db_session, workspace_id, "S1")
     svc2 = await config_repo.upsert_service(db_session, workspace_id, "S2")
     
-    await config_repo.overwrite_dependencies(
-        db_session, 
-        workspace_id, 
-        [
-            {"service_id": svc1.id, "depends_on_service_id": svc2.id},
-            {"service_id": svc2.id, "depends_on_service_id": svc1.id}
-        ]
-    )
-    await db_session.commit()
-    
-    deps = await config_repo.get_dependencies(db_session, workspace_id)
-    assert len(deps) == 2
+    with pytest.raises(ValueError, match="Dependency cycle detected"):
+        await config_repo.overwrite_dependencies(
+            db_session, 
+            workspace_id, 
+            [
+                {"service_id": svc1.id, "depends_on_service_id": svc2.id},
+                {"service_id": svc2.id, "depends_on_service_id": svc1.id}
+            ]
+        )

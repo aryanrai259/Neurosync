@@ -3,6 +3,7 @@
 # Dependencies: schemas.py
 
 from typing import Literal
+from backend.retrieval.schemas import RetrievedChunk
 
 
 class CitationValidator:
@@ -10,12 +11,12 @@ class CitationValidator:
     Validates citations proposed by the LLM against the actual provided context.
     """
 
-    def validate(self, proposed_citations: list[str], retrieved_chunks: list[dict]) -> tuple[list[str], Literal["HIGH", "MEDIUM", "LOW"]]:
+    def validate(self, proposed_citations: list[str], retrieved_chunks: list[RetrievedChunk]) -> tuple[list[str], Literal["HIGH", "MEDIUM", "LOW"]]:
         """
         Cross-references citations against valid context IDs.
         Strips hallucinated citations and downgrades confidence.
         """
-        valid_ids = {str(chunk.get("id")) for chunk in retrieved_chunks if "id" in chunk}
+        valid_ids = {str(chunk.event_id) for chunk in retrieved_chunks}
         
         validated_citations = []
         hallucinations = 0

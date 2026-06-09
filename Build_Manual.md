@@ -1,15 +1,17 @@
 # Build Manual: Company Brain
 
 Version: 1.0
-Status: Execution Guide
+Status: Deprecated / Execution Guide
 Parent Document: Company Brain Final Master Architecture v2.1
+
+> **NOTE:** This document reflects the original build plan. Actual implementation shifted from "Weeks" to "Phases" (0-8), adopted `pgvector` instead of Pinecone/Chroma, and uses a provider-agnostic LLM interface instead of strictly OpenAI. See `docs/adr/0001-phase5-reconciliation.md` for full drift details.
 
 ## 1. Overview
 This manual provides a week-by-week execution plan to move from zero to a fully functional portfolio-ready demo.
 
-## 2. Week-by-Week Execution Plan
+## 2. Phase-by-Phase Execution Plan
 
-### Week 1: Foundation & Ingestion
+### Phase 1-3: Foundation & Ingestion
 *   **Goals:** Basic API, PostgreSQL schema, and synthetic data ingestion.
 *   **Tasks:**
     *   Setup FastAPI project structure.
@@ -17,26 +19,22 @@ This manual provides a week-by-week execution plan to move from zero to a fully 
     *   Create `scripts/seed_basic.py` to generate initial fake users and teams.
     *   Build a basic `/ingest` endpoint for Slack-like JSON payloads.
 
-### Week 2: Semantic Memory (Vector RAG)
-*   **Goals:** Embedding generation and basic semantic retrieval.
+### Phase 4: Semantic & Structural Memory (Vector + Graph)
+*   **Goals:** Embedding generation, basic semantic retrieval, and Neo4j integration.
 *   **Tasks:**
-    *   Integrate OpenAI/Cohere embedding API.
-    *   Setup Vector Store (Pinecone or local ChromaDB).
-    *   Implement `vector_retriever.py`.
-    *   Create basic synthesis prompt in `composer.py`.
+    *   Setup PostgreSQL with `pgvector` (replacing Pinecone/ChromaDB).
+    *   Setup Neo4j (local Docker).
+    *   Implement hybrid retrieval merging Vector and Graph results.
     *   **Milestone:** System can answer "What is X?" based on Slack snippets.
 
-### Week 3: Structural Memory (GraphRAG)
-*   **Goals:** Neo4j integration and relationship extraction.
+### Phase 5: Reasoning Layer
+*   **Goals:** Configuration Registry anchoring and Intent Routing.
 *   **Tasks:**
-    *   Setup Neo4j (local Docker or AuraDB).
-    *   Implement `graph_transformer.py` to build nodes/edges from relational data.
-    *   Implement `graph_retriever.py` with basic Cypher traversals.
-    *   **Milestone:** System can answer "Who owns auth-service?" using the graph.
-
-### Week 4: Reasoning & Temporal Logic
-*   **Goals:** Timeline reconstruction and Decision tracking.
-*   **Tasks:**
+    *   Implement Config Registry (Teams, Services, Repos).
+    *   Implement deterministic `classifier.py` and rule-based `planner.py`.
+    *   Implement `composer.py` with strict `tiktoken` context budgeting.
+    *   Add provider-agnostic `llm_client.py`.
+    *   **Milestone:** System can answer "Who owns auth-service?" using the pipeline.
     *   Implement `timeline_module.py` for chronological sorting.
     *   Implement `decision_module.py` to flag specific events as "Decisions".
     *   Build the `QueryRouter` to distinguish between "why" and "when".
@@ -61,8 +59,7 @@ This manual provides a week-by-week execution plan to move from zero to a fully 
     *   Run final "AcmeCloud" synthetic dataset generation.
 
 ## 3. Development Prerequisites
-- Python 3.10+
+- Python 3.11+
 - Node.js 18+
 - Docker (for local Postgres/Neo4j)
-- OpenAI API Key
-- Pinecone/Milvus Account (optional, can use local alternatives)
+- LLM API Key (OpenAI, Gemini, or Anthropic configured via .env)

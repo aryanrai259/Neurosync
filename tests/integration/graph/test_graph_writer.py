@@ -25,12 +25,18 @@ pytestmark = pytest.mark.asyncio
 
 @pytest_asyncio.fixture
 async def driver():
-    """Get the Neo4j driver and create schema. Cleans up after test."""
-    d = get_driver()
+    """Create a fresh Neo4j driver for each test. Avoids singleton poisoning."""
+    from neo4j import AsyncGraphDatabase
+    from backend.core.config import get_settings
+    settings = get_settings()
+    d = AsyncGraphDatabase.driver(
+        settings.neo4j_uri,
+        auth=(settings.neo4j_user, settings.neo4j_password),
+    )
     await d.verify_connectivity()
     await create_schema(d)
     yield d
-    await close_driver()
+    await d.close()
 
 
 @pytest_asyncio.fixture
@@ -259,10 +265,10 @@ async def test_find_service_owners_returns_teams(writer, driver):
         entities=[team_ref, service_ref],
         relationships=[owns_rel],
     )
-    writer_inst = GraphWriter(driver=get_driver())
+    writer_inst = GraphWriter(driver=driver)
     await writer_inst.write(mo)
 
-    async with get_driver().session() as session:
+    async with driver.session() as session:
         owners = await graph_queries.find_service_owners(
             session, workspace_id, "query-svc"
         )
