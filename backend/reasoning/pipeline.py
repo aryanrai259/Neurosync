@@ -12,6 +12,7 @@ from backend.reasoning.schemas import GroundedAnswer, RetrievalTrace
 from backend.reasoning.planner import planner
 from backend.reasoning.composer import composer
 from backend.reasoning.citation import citation_validator
+from backend.reasoning.decision_module import extract_and_persist_decisions
 from backend.db.session import async_session
 from backend.db.repositories.config_repo import config_repo
 from backend.db.repositories.vector_repo import vector_repo
@@ -122,6 +123,13 @@ class ReasoningPipeline:
 
         # 5. Validate Citations
         validated_cites, confidence = citation_validator.validate(proposed_citations, merged_chunks)
+
+        # 6. Auto-extract decisions from retrieved context
+        try:
+            async with async_session() as _dec_session:
+                await extract_and_persist_decisions(_dec_session, workspace_id, merged_chunks)
+        except Exception as _dec_exc:
+            logger.warning("Decision auto-extraction failed (non-fatal): %s", _dec_exc)
 
         end_ms = int(time.time() * 1000)
 

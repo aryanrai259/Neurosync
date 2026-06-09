@@ -15,6 +15,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.middleware.auth import require_api_key
+from backend.db.models.api_key import ApiKeyModel
 from backend.db.models.event import EventModel
 from backend.db.models.event_embedding import EventEmbeddingModel
 from backend.db.models.entity_registry import EntityRegistryModel
@@ -41,6 +43,7 @@ async def reset_workspace(
     workspace_id: UUID,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
+    _api_key: ApiKeyModel = Depends(require_api_key),
 ) -> dict:
     """
     Wipes all ingested data for a workspace. Leaves the workspace record itself intact.
@@ -105,6 +108,7 @@ async def reindex_workspace(
     workspace_id: UUID,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
+    _api_key: ApiKeyModel = Depends(require_api_key),
 ) -> dict:
     """
     Enqueues re-embedding of all events that lack embeddings.
