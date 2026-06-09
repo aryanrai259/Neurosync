@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "description": "Golden query set for Company Brain retrieval and reasoning evaluation. Each query has an expected answer pattern, required citation sources, and minimum confidence level.",
+  "queries": [
+    {
+      "id": "gq-001",
+      "category": "decision",
+      "query": "What database was chosen for the platform?",
+      "expected_keywords": ["postgresql", "postgres", "database"],
+      "required_sources": ["slack", "github"],
+      "min_confidence": "MEDIUM",
+      "expected_citations_min": 1,
+      "notes": "Should surface architecture decision events"
+    },
+    {
+      "id": "gq-002",
+      "category": "deployment",
+      "query": "When was the auth service last deployed?",
+      "expected_keywords": ["deployed", "deployment", "auth", "service"],
+      "required_sources": ["slack", "github"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 1,
+      "notes": "Tests timeline retrieval for a named service"
+    },
+    {
+      "id": "gq-003",
+      "category": "team",
+      "query": "Who owns the payment service?",
+      "expected_keywords": ["payment", "owns", "team", "owner"],
+      "required_sources": ["github", "jira"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Tests entity ownership extraction from config registry"
+    },
+    {
+      "id": "gq-004",
+      "category": "incident",
+      "query": "Were there any production incidents last week?",
+      "expected_keywords": ["incident", "outage", "alert", "prod"],
+      "required_sources": ["slack", "jira"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Should return empty gracefully if no incidents ingested"
+    },
+    {
+      "id": "gq-005",
+      "category": "pr",
+      "query": "What pull requests were merged in the last 30 days?",
+      "expected_keywords": ["merged", "pull request", "pr"],
+      "required_sources": ["github"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Tests graph traversal for PR events"
+    },
+    {
+      "id": "gq-006",
+      "category": "decision",
+      "query": "What was decided about the API versioning strategy?",
+      "expected_keywords": ["api", "version", "versioning", "decided", "strategy"],
+      "required_sources": ["slack"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Pattern: semantic retrieval of decision-type events"
+    },
+    {
+      "id": "gq-007",
+      "category": "architecture",
+      "query": "Which services depend on the user-service?",
+      "expected_keywords": ["user-service", "depends", "dependency"],
+      "required_sources": ["github"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Tests graph-based dependency traversal"
+    },
+    {
+      "id": "gq-008",
+      "category": "team",
+      "query": "Who made the most commits last month?",
+      "expected_keywords": ["commits", "author", "contributor"],
+      "required_sources": ["github"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Tests aggregation over GitHub events"
+    },
+    {
+      "id": "gq-009",
+      "category": "planning",
+      "query": "What features are planned for the next sprint?",
+      "expected_keywords": ["sprint", "planned", "features", "jira"],
+      "required_sources": ["jira"],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Tests Jira event retrieval"
+    },
+    {
+      "id": "gq-010",
+      "category": "general",
+      "query": "Summarize the team's activity from the last week",
+      "expected_keywords": ["activity", "summary", "week"],
+      "required_sources": [],
+      "min_confidence": "LOW",
+      "expected_citations_min": 0,
+      "notes": "Broad query — tests hybrid retrieval fallback behavior"
+    }
+  ]
+}
