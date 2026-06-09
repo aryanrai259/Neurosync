@@ -4,14 +4,15 @@
 
 ---
 
-## Current Project Status — Phase 5 Complete
+## Current Project Status — Backend Feature Complete (v0.7.0)
 
-**Phases 0–5 are complete and E2E-verified.**  
-The core reasoning pipeline — Classify → Plan → Retrieve (Vector + Graph) → Merge → Synthesize → Cite — is fully wired with real PostgreSQL (pgvector) and Neo4j backends, proven by 5 live query traces with real Gemini LLM responses.
+**Phases 0–6 and Phase 8 (Backend) are complete and verified.**  
+The core reasoning pipeline — Classify → Plan → Retrieve (Vector + Graph) → Merge → Synthesize → Cite — is fully wired with real PostgreSQL (pgvector) and Neo4j backends.
+The backend has been hardened with API key authentication, rate limiting, and observability (metrics/latency). Decision extraction and Timeline aggregation are live. Evaluation framework has proven the pipeline retrieval accuracy.
 
-**Test Status:** 551 tests passing · 91% coverage
+**Test Status:** Full test suite passing · High coverage
 
-**In Progress:** Phase 6 — API hardening, authentication, admin tools, Timeline + Decision modules.
+**In Progress:** Phase 7 — Frontend (Next.js).
 
 ---
 
@@ -35,12 +36,12 @@ The core reasoning pipeline — Classify → Plan → Retrieve (Vector + Graph) 
 | Citation validation | ✅ |
 | Config registry + graph sync | ✅ |
 | Basic API (3 routers) | ✅ |
-| Authentication / RBAC | ❌ Phase 6 |
-| Timeline intelligence | ❌ Phase 6 |
-| Decision intelligence | ❌ Phase 6 |
-| Admin tools (reset, reindex) | ❌ Phase 6 |
-| Observability / metrics | ❌ Phase 8 |
-| Evaluation framework | ❌ Phase 8 |
+| Authentication / RBAC | ✅ |
+| Timeline intelligence | ✅ |
+| Decision intelligence | ✅ |
+| Admin tools (reset, reindex) | ✅ |
+| Observability / metrics | ✅ |
+| Evaluation framework | ✅ |
 | Frontend | ❌ Phase 7 |
 
 ---
@@ -75,10 +76,15 @@ Source Events (GitHub, Slack, synthetic)
         │
         ▼
   REST API (FastAPI)
+  ├── POST /api/v1/auth/keys
+  ├── POST /api/v1/workspaces
   ├── POST /api/v1/ingest/synthetic
   ├── POST /api/v1/ingest/github
   ├── POST /api/v1/reasoning/query
+  ├── GET /api/v1/timeline/*
+  ├── GET/POST /api/v1/decisions/*
   ├── GET/POST /api/v1/config/*
+  ├── GET /api/v1/metrics
   └── GET /health
 ```
 
@@ -204,6 +210,7 @@ Execute a natural language query against the knowledge base.
 
 **Request:**
 ```json
+// Header: X-API-Key: <your_key>
 {
   "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
   "query": "Who owns auth-service?"
@@ -225,7 +232,9 @@ Execute a natural language query against the knowledge base.
 ### `POST /api/v1/ingest/synthetic`
 Ingest pre-formed events (synthetic data, demos).
 
+**Request:**
 ```json
+// Header: X-API-Key: <your_key>
 {
   "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
   "requested_by": "demo-script",
@@ -244,7 +253,9 @@ Ingest pre-formed events (synthetic data, demos).
 ### `POST /api/v1/ingest/github`
 Fetch and ingest recent issues + PRs from a GitHub repository.
 
+**Request:**
 ```json
+// Header: X-API-Key: <your_key>
 {
   "workspace_id": "123e4567-e89b-12d3-a456-426614174000",
   "requested_by": "admin",
@@ -270,9 +281,9 @@ Config registry endpoints — manage teams, services, and repositories that grou
 | 3 | Ingestion pipeline | ✅ Complete |
 | 4 | Memory construction + Vector + Graph retrieval | ✅ Complete |
 | 5 | Reasoning layer + Config registry | ✅ Complete |
-| 6 | API hardening + Auth + Admin + Timeline + Decision | 🔄 In Progress |
+| 6 | API hardening + Auth + Admin + Timeline + Decision | ✅ Complete |
 | 7 | Frontend (Next.js) | ⬜ Not started |
-| 8 | Evaluation + Observability | ⬜ Not started |
+| 8 | Evaluation + Observability | ✅ Complete |
 
 ---
 
@@ -312,4 +323,3 @@ feature/xxx → dev (incremental merges, full suite after each)
 - [ADR-0001: Phase 5 Reconciliation](./docs/adr/0001-phase5-reconciliation.md)
 - [Current State](./docs/current/CURRENT_STATE.md)
 - [Roadmap Remaining](./docs/current/ROADMAP_REMAINING.md)
-- [Retrieval Proof Report](./docs/current/retrieval_proof_report.md)

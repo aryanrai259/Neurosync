@@ -57,7 +57,18 @@ async def api_workspace(db_session):
     return ws
 
 
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def api_key_header(db_session, api_workspace):
+    """Generate a valid API key for the module workspace and return its header."""
+    from backend.core.auth import generate_api_key
+    from backend.db.repositories.api_key_repo import api_key_repo
+    raw_key, key_hash = generate_api_key()
+    await api_key_repo.create_key(db_session, api_workspace.id, key_hash, "Test Key")
+    await db_session.commit()
+    return {"X-API-Key": raw_key}
+
 # ---------------------------------------------------------------------------
+
 # Health Endpoints
 # ---------------------------------------------------------------------------
 
@@ -134,10 +145,11 @@ def test_get_job_not_found(client):
     assert resp.status_code == 404
 
 
-def test_get_job_after_ingest(client, api_workspace):
+def test_get_job_after_ingest(client, api_workspace, api_key_header):
     """Submitting a synthetic job creates a trackable job_id."""
     ingest_resp = client.post(
         "/api/v1/ingest/synthetic",
+        headers=api_key_header,
         json={
             "workspace_id": str(api_workspace.id),
             "requested_by": "test",
@@ -166,29 +178,29 @@ def test_get_job_after_ingest(client, api_workspace):
 # Admin Endpoints
 # ---------------------------------------------------------------------------
 
-def test_reset_workspace_not_found(client):
+def test_reset_workspace_not_found(client, api_key_header):
     """POST /api/v1/admin/reset/{id} returns 404 for unknown workspace."""
-    resp = client.post(f"/api/v1/admin/reset/{uuid4()}")
+    resp = client.post(f"/api/v1/admin/reset/{uuid4()}", headers=api_key_header)
     assert resp.status_code == 404
 
 
-def test_reset_workspace_accepted(client, api_workspace):
+def test_reset_workspace_accepted(client, api_workspace, api_key_header):
     """POST /api/v1/admin/reset/{workspace_id} returns 202 for valid workspace."""
-    resp = client.post(f"/api/v1/admin/reset/{api_workspace.id}")
+    resp = client.post(f"/api/v1/admin/reset/{api_workspace.id}", headers=api_key_header)
     assert resp.status_code == 202
     data = resp.json()
     assert data["status"] == "accepted"
 
 
-def test_reindex_workspace_not_found(client):
+def test_reindex_workspace_not_found(client, api_key_header):
     """POST /api/v1/admin/reindex/{id} returns 404 for unknown workspace."""
-    resp = client.post(f"/api/v1/admin/reindex/{uuid4()}")
+    resp = client.post(f"/api/v1/admin/reindex/{uuid4()}", headers=api_key_header)
     assert resp.status_code == 404
 
 
-def test_reindex_workspace_accepted(client, api_workspace):
+def test_reindex_workspace_accepted(client, api_workspace, api_key_header):
     """POST /api/v1/admin/reindex/{workspace_id} returns 202 for valid workspace."""
-    resp = client.post(f"/api/v1/admin/reindex/{api_workspace.id}")
+    resp = client.post(f"/api/v1/admin/reindex/{api_workspace.id}", headers=api_key_header)
     assert resp.status_code == 202
     data = resp.json()
     assert data["status"] == "accepted"
