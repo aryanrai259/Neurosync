@@ -4,9 +4,10 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from backend.core.rate_limiter import limiter, QUERY_RATE
 from backend.reasoning.pipeline import pipeline
 from backend.reasoning.schemas import GroundedAnswer
 
@@ -19,24 +20,25 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/query", response_model=GroundedAnswer)
-async def query_reasoning(request: QueryRequest):
+@limiter.limit(QUERY_RATE)
+async def query_reasoning(request: Request, body: QueryRequest):
     """
     Standard query endpoint. Returns the final answer and citations.
+    Rate limited: 20 requests/minute per API key or IP.
     """
-    answer = await pipeline.query(request.query, request.workspace_id)
+    answer = await pipeline.query(body.query, body.workspace_id)
     return answer
 
 
 @router.post("/explain")
-async def explain_query(request: QueryRequest):
+@limiter.limit(QUERY_RATE)
+async def explain_query(request: Request, body: QueryRequest):
     """
-    MVP requirement: Explains the execution plan without returning a full answer.
+    MVP: Explains the execution plan without returning a full answer.
+    Rate limited: 20 requests/minute per API key or IP.
     """
-    # For MVP we can just run the query and return the answer,
-    # or expose the classifier/planner trace directly.
-    # We will reuse pipeline.query for now as it contains strategy and confidence.
-    answer = await pipeline.query(request.query, request.workspace_id)
-    
+    answer = await pipeline.query(body.query, body.workspace_id)
+
     return {
         "query_id": answer.query_id,
         "strategy": answer.retrieval_strategy,
