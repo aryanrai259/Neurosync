@@ -24,6 +24,8 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.middleware.auth import require_api_key
+from backend.db.models.api_key import ApiKeyModel
 from backend.db.repositories.entity_registry_repo import entity_registry_repo
 from backend.db.repositories.event_repo import event_repo
 from backend.db.repositories.ingestion_repo import ingestion_repo
@@ -75,6 +77,7 @@ async def submit_synthetic_job(
     request: SyntheticJobRequest,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
+    _api_key: ApiKeyModel = Depends(require_api_key),
 ) -> JobSubmittedResponse:
     """
     Submit raw events for synthetic ingestion.
@@ -129,6 +132,7 @@ async def submit_github_job(
     request: GithubJobRequest,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
+    _api_key: ApiKeyModel = Depends(require_api_key),
 ) -> JobSubmittedResponse:
     """
     Submit a GitHub repository for ingestion.

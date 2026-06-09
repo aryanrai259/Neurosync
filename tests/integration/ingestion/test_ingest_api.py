@@ -44,6 +44,17 @@ async def test_workspace(db_session):
     return ws
 
 
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def api_key_header(db_session, test_workspace):
+    """Generate a valid API key for the module workspace and return its header."""
+    from backend.core.auth import generate_api_key
+    from backend.db.repositories.api_key_repo import api_key_repo
+    raw_key, key_hash = generate_api_key()
+    await api_key_repo.create_key(db_session, test_workspace.id, key_hash, "Test Key")
+    await db_session.commit()
+    return {"X-API-Key": raw_key}
+
+
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
@@ -74,27 +85,27 @@ def synthetic_payload(workspace_id, events=None):
 
 
 class TestSubmitSyntheticJob:
-    def test_returns_202(self, client, test_workspace):
+    def test_returns_202(self, client, test_workspace, api_key_header):
         payload = synthetic_payload(test_workspace.id)
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         assert response.status_code == 202
 
-    def test_response_has_job_id(self, client, test_workspace):
+    def test_response_has_job_id(self, client, test_workspace, api_key_header):
         payload = synthetic_payload(test_workspace.id)
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         data = response.json()
         assert "job_id" in data
         # Should be a valid UUID
         from uuid import UUID
         UUID(data["job_id"])  # raises ValueError if invalid
 
-    def test_response_status_is_pending(self, client, test_workspace):
+    def test_response_status_is_pending(self, client, test_workspace, api_key_header):
         payload = synthetic_payload(test_workspace.id)
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         data = response.json()
         assert data["status"] == "pending"
 
-    def test_response_event_count_matches_input(self, client, test_workspace):
+    def test_response_event_count_matches_input(self, client, test_workspace, api_key_header):
         events = [
             {
                 "source": "slack",
@@ -106,26 +117,26 @@ class TestSubmitSyntheticJob:
             for i in range(3)
         ]
         payload = synthetic_payload(test_workspace.id, events=events)
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         data = response.json()
         assert data["event_count"] == 3
 
-    def test_returns_404_for_unknown_workspace(self, client):
+    def test_returns_404_for_unknown_workspace(self, client, api_key_header):
         payload = synthetic_payload(uuid4())
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         assert response.status_code == 404
 
-    def test_returns_422_for_empty_events_list(self, client, test_workspace):
+    def test_returns_422_for_empty_events_list(self, client, test_workspace, api_key_header):
         """Pydantic validator (min_length=1 on events list) must reject empty list."""
         payload = {
             "workspace_id": str(test_workspace.id),
             "requested_by": "test",
             "events": [],
         }
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         assert response.status_code == 422
 
-    def test_returns_422_for_missing_workspace_id(self, client):
+    def test_returns_422_for_missing_workspace_id(self, client, api_key_header):
         payload = {
             "requested_by": "test",
             "events": [
@@ -138,7 +149,7 @@ class TestSubmitSyntheticJob:
                 }
             ],
         }
-        response = client.post("/api/v1/ingest/synthetic", json=payload)
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
         assert response.status_code == 422
 
     def test_health_endpoint_returns_200(self, client):
@@ -149,32 +160,32 @@ class TestSubmitSyntheticJob:
 
 
 class TestSubmitGithubJob:
-    def test_returns_202_accepted(self, client, test_workspace):
+    def test_returns_202_accepted(self, client, test_workspace, api_key_header):
         payload = {
             "workspace_id": str(test_workspace.id),
             "requested_by": "test-user",
             "repo": "owner/repo",
         }
-        resp = client.post("/api/v1/ingest/github", json=payload)
+        resp = client.post("/api/v1/ingest/github", json=payload, headers=api_key_header)
         assert resp.status_code == 202
         data = resp.json()
         assert data["status"] == "pending"
         assert "job_id" in data
 
-    def test_404_on_missing_workspace(self, client):
+    def test_404_on_missing_workspace(self, client, api_key_header):
         payload = {
             "workspace_id": str(uuid4()),
             "requested_by": "test-user",
             "repo": "owner/repo",
         }
-        resp = client.post("/api/v1/ingest/github", json=payload)
+        resp = client.post("/api/v1/ingest/github", json=payload, headers=api_key_header)
         assert resp.status_code == 404
 
-    def test_422_on_invalid_repo(self, client, test_workspace):
+    def test_422_on_invalid_repo(self, client, test_workspace, api_key_header):
         payload = {
             "workspace_id": str(test_workspace.id),
             "requested_by": "test-user",
             "repo": "a",  # min_length=3
         }
-        resp = client.post("/api/v1/ingest/github", json=payload)
+        resp = client.post("/api/v1/ingest/github", json=payload, headers=api_key_header)
         assert resp.status_code == 422

@@ -99,5 +99,10 @@ class IngestionRepository(BaseRepository[IngestionJobModel]):
         await session.commit()
         return result.rowcount > 0
 
+    async def get_job(self, session: AsyncSession, job_id: UUID) -> IngestionJobModel | None:
+        """Fetch a single ingestion job by its UUID."""
+        return await self.get_by_id(session, job_id)
+
+
 # Global instance
 ingestion_repo = IngestionRepository()

@@ -27,6 +27,8 @@ from backend.db.models.config import (  # noqa
     ConfigOwnershipModel,
     ConfigDependencyModel,
 )
+from backend.db.models.decision import DecisionModel  # noqa
+from backend.db.models.api_key import ApiKeyModel  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
