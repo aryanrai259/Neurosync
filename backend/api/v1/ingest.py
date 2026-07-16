@@ -29,8 +29,12 @@ from backend.db.models.api_key import ApiKeyModel
 from backend.db.repositories.entity_registry_repo import entity_registry_repo
 from backend.db.repositories.event_repo import event_repo
 from backend.db.repositories.ingestion_repo import ingestion_repo
+from backend.db.repositories.memory_repo import memory_object_repo
+from backend.db.repositories.vector_repo import vector_repo
 from backend.db.repositories.workspace_repo import workspace_repo
 from backend.db.session import get_db_session
+from backend.graph.client import get_driver
+from backend.graph.writer import GraphWriter
 from backend.ingestion.adapters.base import BaseAdapter
 from backend.ingestion.adapters.github import GitHubAdapter
 from backend.ingestion.adapters.synthetic import SyntheticAdapter
@@ -38,6 +42,10 @@ from backend.ingestion.deduplicator import Deduplicator
 from backend.ingestion.entity_extractor import BasicEntityExtractor
 from backend.ingestion.schemas import GithubJobRequest, JobSubmittedResponse, SyntheticJobRequest
 from backend.ingestion.worker import IngestionWorker
+from backend.memory.entity_resolver import EntityResolver
+from backend.memory.memory_constructor import MemoryConstructor
+from backend.memory.relationship_extractor import RelationshipExtractor
+from backend.memory.vector_indexer import VectorIndexer
 from backend.models.enums import IngestionStatus, SourceType
 
 logger = logging.getLogger(__name__)
@@ -51,6 +59,10 @@ def _build_worker(adapter: BaseAdapter) -> IngestionWorker:
 
     Called once per request. All dependencies are stateless singletons
     except the session factory, which defaults to the global async_session.
+
+    Wires Phase 4A/4B/4C (memory construction, vector indexing, graph
+    writing) so ingested events actually become retrievable — without this,
+    events persist to the events table but are never embedded or graph-written.
     """
     return IngestionWorker(
         adapter=adapter,
@@ -59,6 +71,13 @@ def _build_worker(adapter: BaseAdapter) -> IngestionWorker:
         event_repo=event_repo,
         ingestion_repo=ingestion_repo,
         entity_registry_repo=entity_registry_repo,
+        memory_constructor=MemoryConstructor(
+            resolver=EntityResolver(),
+            extractor=RelationshipExtractor(),
+            repo=memory_object_repo,
+        ),
+        vector_indexer=VectorIndexer(repo=vector_repo),
+        graph_writer=GraphWriter(driver=get_driver()),
     )
 
 

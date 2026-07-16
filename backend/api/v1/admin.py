@@ -150,12 +150,13 @@ async def _run_reindex(workspace_id: UUID) -> None:
     try:
         from backend.db.session import async_session
         from backend.db.models.event import EventModel
+        from backend.memory.memory_object import MemoryObject
         from backend.memory.vector_indexer import VectorIndexer
         from backend.db.repositories.vector_repo import vector_repo
         from sqlalchemy import select
         from backend.models.enums import EmbeddingStatus
 
-        indexer = VectorIndexer(vector_repo=vector_repo)
+        indexer = VectorIndexer(repo=vector_repo)
 
         async with async_session() as session:
             stmt = select(EventModel).where(
@@ -167,7 +168,19 @@ async def _run_reindex(workspace_id: UUID) -> None:
 
             for event in events:
                 try:
-                    await indexer.index_event(session, event)
+                    memory_object = MemoryObject(
+                        event_id=event.id,
+                        workspace_id=event.workspace_id,
+                        source=event.source,
+                        content=event.content,
+                        title=event.title,
+                        author_id=event.author_id,
+                        timestamp=event.timestamp,
+                        entities=[],
+                        relationships=[],
+                        metadata=event.metadata_json,
+                    )
+                    await indexer.index(memory_object, session)
                     await session.commit()
                 except Exception as e:
                     logger.error("Reindex failed for event %s: %s", event.id, e)

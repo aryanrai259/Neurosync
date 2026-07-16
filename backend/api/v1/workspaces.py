@@ -11,6 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db.repositories.workspace_repo import workspace_repo
@@ -47,9 +48,16 @@ async def create_workspace(
     Create a workspace. A workspace is required before ingesting events or querying.
     Returns 409 if a workspace with the same name already exists.
     """
-    ws = await workspace_repo.create(session, name=request.name)
-    logger.info("Created workspace %s (id=%s)", ws.name, ws.id)
-    return WorkspaceResponse(id=ws.id, name=ws.name)
+    try:
+        ws = await workspace_repo.create(session, name=request.name)
+        logger.info("Created workspace %s (id=%s)", ws.name, ws.id)
+        return WorkspaceResponse(id=ws.id, name=ws.name)
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Workspace with this name already exists.",
+        )
 
 
 @router.get(

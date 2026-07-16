@@ -27,6 +27,22 @@ def client():
         yield c
 
 
+@pytest_asyncio.fixture(autouse=True, scope="module", loop_scope="module")
+async def _dispose_global_engine_after_module():
+    """
+    Dispose the app's global engine after this module finishes so the next
+    test module's TestClient (its own portal loop) gets fresh connections
+    instead of reusing pooled connections bound to this module's loop.
+    Mirrors tests/e2e/reasoning/conftest.py's established pattern. Needed
+    now that this module's background-task tests (TestSyntheticIngestion-
+    PopulatesRetrieval) actually exercise the app's DB engine live.
+    """
+    yield
+    from backend.db.session import engine
+
+    await engine.dispose()
+
+
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def db_session():
     engine = get_engine(get_settings().database_url)
@@ -157,6 +173,107 @@ class TestSubmitSyntheticJob:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
+
+
+class TestSyntheticIngestionPopulatesRetrieval:
+    """
+    Regression coverage for the ingestion->memory/vector/graph wiring bug:
+    _build_worker() previously constructed IngestionWorker without
+    memory_constructor/vector_indexer/graph_writer, so events persisted but
+    were never embedded or graph-written. TestClient runs FastAPI
+    BackgroundTasks synchronously before returning the response, so DB/graph
+    state can be asserted immediately after the POST call returns.
+    """
+
+    @pytest.mark.asyncio(loop_scope="module")
+    async def test_ingested_event_gets_embedded(
+        self, client, test_workspace, api_key_header, db_session
+    ):
+        from sqlalchemy import select
+        from backend.db.models.event import EventModel
+        from backend.db.models.event_embedding import EventEmbeddingModel
+        from backend.models.enums import EmbeddingStatus
+
+        source_id = f"msg-embed-{uuid4()}"
+        payload = synthetic_payload(
+            test_workspace.id,
+            events=[
+                {
+                    "source": "slack",
+                    "source_id": source_id,
+                    "raw_content": "auth-service is owned by the Platform Team",
+                    "raw_author": "alice",
+                    "raw_timestamp": "2025-01-15T14:22:00Z",
+                }
+            ],
+        )
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
+        assert response.status_code == 202
+
+        stmt = select(EventModel).where(
+            EventModel.workspace_id == test_workspace.id,
+            EventModel.source_id == source_id,
+        )
+        event = (await db_session.execute(stmt)).scalar_one()
+        assert event.embedding_status == EmbeddingStatus.EMBEDDED, (
+            "event.embedding_status should be EMBEDDED after synthetic ingestion "
+            "— if PENDING, the ingestion worker isn't wired to VectorIndexer"
+        )
+
+        emb_stmt = select(EventEmbeddingModel).where(EventEmbeddingModel.event_id == event.id)
+        embedding = (await db_session.execute(emb_stmt)).scalar_one_or_none()
+        assert embedding is not None, "no event_embeddings row was created"
+
+    @pytest.mark.asyncio(loop_scope="module")
+    async def test_ingested_event_gets_graph_written(
+        self, client, test_workspace, api_key_header, db_session
+    ):
+        from sqlalchemy import select
+        from neo4j import AsyncGraphDatabase
+        from backend.core.config import get_settings
+        from backend.db.models.event import EventModel
+
+        source_id = f"msg-graph-{uuid4()}"
+        payload = synthetic_payload(
+            test_workspace.id,
+            events=[
+                {
+                    "source": "slack",
+                    "source_id": source_id,
+                    "raw_content": "auth-service is failing again today",
+                    "raw_author": "bob",
+                    "raw_timestamp": "2025-01-16T10:00:00Z",
+                }
+            ],
+        )
+        response = client.post("/api/v1/ingest/synthetic", json=payload, headers=api_key_header)
+        assert response.status_code == 202
+
+        stmt = select(EventModel).where(
+            EventModel.workspace_id == test_workspace.id,
+            EventModel.source_id == source_id,
+        )
+        event = (await db_session.execute(stmt)).scalar_one()
+
+        # Fresh driver (not the global singleton) to avoid cross-event-loop reuse
+        # of a driver created inside TestClient's own portal loop.
+        settings = get_settings()
+        driver = AsyncGraphDatabase.driver(
+            settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password)
+        )
+        try:
+            async with driver.session() as neo_session:
+                result = await neo_session.run(
+                    "MATCH (e:Event {event_id: $event_id}) RETURN e",
+                    event_id=str(event.id),
+                )
+                record = await result.single()
+                assert record is not None, (
+                    "no Event node was written to Neo4j for this ingested event "
+                    "— if missing, the ingestion worker isn't wired to GraphWriter"
+                )
+        finally:
+            await driver.close()
 
 
 class TestSubmitGithubJob:
