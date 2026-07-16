@@ -4,15 +4,15 @@
 
 ---
 
-## Current Project Status — Backend Feature Complete (v0.7.0)
+## Current Project Status — Backend Feature Complete, Live-Verified (v0.7.0, as of 2026-07-16)
 
-**Phases 0–6 and Phase 8 (Backend) are complete and verified.**  
-The core reasoning pipeline — Classify → Plan → Retrieve (Vector + Graph) → Merge → Synthesize → Cite — is fully wired with real PostgreSQL (pgvector) and Neo4j backends.
-The backend has been hardened with API key authentication, rate limiting, and observability (metrics/latency). Decision extraction and Timeline aggregation are live. Evaluation framework has proven the pipeline retrieval accuracy.
+**Phases 0–6 and Phase 8 (Backend) are complete and confirmed working end-to-end via a live verification pass on 2026-07-16** — real PostgreSQL (pgvector), real Neo4j, real Ollama embeddings, and a real LLM key, driven through the actual HTTP API rather than just the automated test suite. The core reasoning pipeline — Classify → Plan → Retrieve (Vector + Graph) → Merge → Synthesize → Cite — was confirmed to produce a real, cited, `HIGH`-confidence answer for data ingested live through `POST /api/v1/ingest/synthetic`.
 
-**Test Status:** Full test suite passing · High coverage
+**Earlier the same day, that verification pass found 3 bugs that made the core loop non-functional despite a green test suite** (ingestion never wired memory-construction/embedding/graph-write; the `/admin/reindex` remediation endpoint crashed; the timeline entity endpoint 500'd). **All three were fixed and re-verified live before end of day** — see `docs/current/CURRENT_STATE.md` §1 for the full incident writeup, and `docs/current/ARCHITECTURAL_GAPS.md` for the "why didn't tests catch this" lesson (component tests hand-seed data and never exercised the ingestion→retrieval seam; 3 new regression tests now close that gap).
 
-**In Progress:** Phase 7 — Frontend (Next.js).
+**Test Status:** 676 tests passing · 87% coverage — run live against real Postgres/Neo4j/Ollama, after the fixes.
+
+**In Progress:** Phase 7 — Frontend (Next.js) has **not** actually started (`frontend/` is empty scaffolding) but is now unblocked — backend correctness is no longer a gate.
 
 ---
 
@@ -35,14 +35,16 @@ The backend has been hardened with API key authentication, rate limiting, and ob
 | LLM synthesis (multi-provider: Gemini, OpenAI, Anthropic, Groq) | ✅ |
 | Citation validation | ✅ |
 | Config registry + graph sync | ✅ |
-| Basic API (3 routers) | ✅ |
-| Authentication / RBAC | ✅ |
-| Timeline intelligence | ✅ |
-| Decision intelligence | ✅ |
-| Admin tools (reset, reindex) | ✅ |
-| Observability / metrics | ✅ |
-| Evaluation framework | ✅ |
-| Frontend | ❌ Phase 7 |
+| Full API (12 routers) | ✅ |
+| Authentication / RBAC | ✅ Confirmed live |
+| Timeline intelligence | ✅ Confirmed live (fixed 2026-07-16 — see note below) |
+| Decision intelligence | ✅ Confirmed live |
+| Admin tools (reset, reindex) | ✅ `reindex` confirmed live + tested (fixed 2026-07-16); `reset` untested but not known-broken |
+| Observability / metrics | ✅ Confirmed live |
+| Evaluation framework | ✅ Confirmed live — real citations returned |
+| Frontend | ❌ Not started (Phase 7) |
+
+> **2026-07-16 note:** A live verification pass found and fixed 3 bugs the same day — ingestion wasn't wiring memory-construction/embedding/graph-write (`backend/api/v1/ingest.py::_build_worker()`), `/admin/reindex` crashed on a constructor signature mismatch, and the timeline entity endpoint 500'd on a wrong column name. All three are fixed, covered by new regression tests, and re-verified live. Full incident writeup: `docs/current/CURRENT_STATE.md` §1.
 
 ---
 
@@ -281,9 +283,9 @@ Config registry endpoints — manage teams, services, and repositories that grou
 | 3 | Ingestion pipeline | ✅ Complete |
 | 4 | Memory construction + Vector + Graph retrieval | ✅ Complete |
 | 5 | Reasoning layer + Config registry | ✅ Complete |
-| 6 | API hardening + Auth + Admin + Timeline + Decision | ✅ Complete |
-| 7 | Frontend (Next.js) | ⬜ Not started |
-| 8 | Evaluation + Observability | ✅ Complete |
+| 6 | API hardening + Auth + Admin + Timeline + Decision | ✅ Complete, confirmed live (3 bugs found and fixed 2026-07-16 — see status note above) |
+| 7 | Frontend (Next.js) | ⬜ Not started — now unblocked |
+| 8 | Evaluation + Observability | ✅ Complete, confirmed live |
 
 ---
 

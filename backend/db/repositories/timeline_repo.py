@@ -60,15 +60,15 @@ class TimelineRepository:
             EventModel.workspace_id == workspace_id,
         ]
         if since:
-            conditions.append(EventModel.event_timestamp >= since)
+            conditions.append(EventModel.timestamp >= since)
 
         stmt = (
             select(EventModel)
             .where(and_(*conditions))
             .where(
-                EventModel.raw_content.ilike(f"%{canonical_name}%")
+                EventModel.content.ilike(f"%{canonical_name}%")
             )
-            .order_by(EventModel.event_timestamp.asc())
+            .order_by(EventModel.timestamp.asc())
             .limit(limit)
         )
 
@@ -78,10 +78,10 @@ class TimelineRepository:
         return [
             {
                 "id": ev.id,
-                "timestamp": ev.event_timestamp,
+                "timestamp": ev.timestamp,
                 "source": ev.source,
-                "raw_author": ev.raw_author,
-                "raw_content": ev.raw_content,
+                "raw_author": ev.author_id,
+                "raw_content": ev.content,
                 "entity_mentions": [canonical_name],  # Confirmed mention
             }
             for ev in events
@@ -103,10 +103,10 @@ class TimelineRepository:
             select(EventModel)
             .where(
                 EventModel.workspace_id == workspace_id,
-                EventModel.event_timestamp >= start,
-                EventModel.event_timestamp <= end,
+                EventModel.timestamp >= start,
+                EventModel.timestamp <= end,
             )
-            .order_by(EventModel.event_timestamp.asc())
+            .order_by(EventModel.timestamp.asc())
             .limit(limit)
         )
         result = await session.execute(stmt)
@@ -115,10 +115,10 @@ class TimelineRepository:
         return [
             {
                 "id": ev.id,
-                "timestamp": ev.event_timestamp,
+                "timestamp": ev.timestamp,
                 "source": ev.source,
-                "raw_author": ev.raw_author,
-                "raw_content": ev.raw_content,
+                "raw_author": ev.author_id,
+                "raw_content": ev.content,
                 "entity_mentions": [],
             }
             for ev in events

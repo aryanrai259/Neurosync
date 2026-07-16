@@ -1,7 +1,9 @@
 # Manual Backend Experience Guide
 **For Aryan**
 
-This guide provides everything you need to manually experience the completed backend capabilities (Phase 0-6 + 8) end-to-end. Follow the sections sequentially for a smooth walkthrough.
+This guide provides everything you need to manually experience the backend capabilities (Phase 0-6 + 8) end-to-end. Follow the sections sequentially for a smooth walkthrough.
+
+> **2026-07-16 update:** Running this guide live earlier today surfaced 3 bugs — the reasoning query in step 8 returned "No supporting evidence found," the decisions in step 10 were empty, and the timeline in step 11 500'd. **All three are now fixed and re-verified live** — see `docs/current/CURRENT_STATE.md` §1 for the writeup. The connection details and `evaluate.py` command below have also been corrected to match the actual `docker-compose.yml` and script signature.
 
 ---
 
@@ -12,11 +14,11 @@ You need PostgreSQL (with pgvector), Neo4j, and the API running.
 1. **Environment Variables (`.env`)**
    Make sure your `.env` contains at minimum:
    ```env
-   # Database URLs
-   DATABASE_URL=postgresql+asyncpg://neuro:neuro_pass@localhost:5432/neuro
+   # Database URLs — match docker-compose.yml's actual port mapping (5433 on host)
+   DATABASE_URL=postgresql+asyncpg://neuro_user:neuro_password@127.0.0.1:5433/neuro_db
    NEO4J_URI=bolt://localhost:7687
    NEO4J_USER=neo4j
-   NEO4J_PASSWORD=neuro_neo_pass
+   NEO4J_PASSWORD=neuro_password
 
    # LLM Configuration (for Reasoning layer)
    LLM_PROVIDER=gemini
@@ -260,10 +262,10 @@ Make sure Ollama and Gemini are running/configured, then run:
 
 ```bash
 set PYTHONPATH=.
-python scripts/evaluate.py
+python scripts/evaluate.py --workspace-id <WORKSPACE_ID>
 ```
 
-*This will output a pass/fail matrix, average latencies, confidence distributions, and strategy distributions for all 10 golden queries.*
+*This will output a pass/fail matrix, average latencies, confidence distributions, and strategy distributions for all 10 golden queries. `--workspace-id` is required. As of 2026-07-16, this correctly reports 0/10 passing on a live-ingested workspace due to the ingestion bug described at the top of this guide.*
 
 ---
 
